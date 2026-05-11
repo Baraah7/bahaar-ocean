@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -L \"https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/waternormals.jpg\" -o \"c:/Users/User/Documents/Code/bahaar-ocean/public/textures/waternormals.jpg\")",
+      "Bash(npx tsc *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/mrdoob/three.js/master/examples/webgl_shaders_ocean.html\")"
+    ]
+  }
+}
