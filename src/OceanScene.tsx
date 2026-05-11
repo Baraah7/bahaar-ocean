@@ -78,22 +78,21 @@ interface SwayAgent {
   phase: number; freq: number; baseZ: number
 }
 
-// ── Frame-rate-independent lerp factor ────────────────────────────────────────
-function alpha(dt: number, halfLifeSec = 0.12) {
-  return 1 - Math.pow(0.5, dt / halfLifeSec)
-}
+const LERP = 0.05   // camera smooth-inertia factor per frame (~60 fps target)
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function OceanScene() {
-  const mountRef  = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef(0)
-  const showRef   = useRef(false)
+  const mountRef       = useRef<HTMLDivElement>(null)
+  const scrollElRef    = useRef<HTMLDivElement>(null)
+  const scrollRef      = useRef(0)
+  const showRef        = useRef(false)
   const [showLanding, setShowLanding] = useState(false)
 
   useEffect(() => {
     const container = mountRef.current
-    if (!container) return
+    const scrollEl  = scrollElRef.current
+    if (!container || !scrollEl) return
 
     // ── Renderer ───────────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({
@@ -282,12 +281,12 @@ export default function OceanScene() {
       }, undefined, e => console.warn(path, e))
     })
 
-    // ── Scroll listener ────────────────────────────────────────────────────────
+    // ── Scroll listener — reads from dedicated scroll container, not window ────
     const onScroll = () => {
-      const maxY = document.body.scrollHeight - window.innerHeight
-      scrollRef.current = maxY > 0 ? Math.min(window.scrollY / maxY, 1) : 0
+      const max = scrollEl.scrollHeight - scrollEl.clientHeight
+      scrollRef.current = max > 0 ? Math.min(scrollEl.scrollTop / max, 1) : 0
     }
-    window.addEventListener('scroll', onScroll, { passive: true })
+    scrollEl.addEventListener('scroll', onScroll, { passive: true })
 
     // ── Pre-allocated temporaries (avoids per-frame GC) ───────────────────────
     const skyBlue  = new THREE.Color(0xa8c8dc)
@@ -305,7 +304,6 @@ export default function OceanScene() {
     const animate = () => {
       animId = requestAnimationFrame(animate)
       const t  = clock.getElapsedTime()
-      const dt = clock.getDelta()  // seconds since last frame
       const p  = scrollRef.current  // scroll progress 0 → 1
 
       water.material.uniforms['time'].value += 1 / 60
@@ -322,10 +320,8 @@ export default function OceanScene() {
         camTgt.y = THREE.MathUtils.lerp(camTgt.y, camTgt.y + 20, f * 0.5)
       }
 
-      // Smooth-inertia lerp (frame-rate-independent, half-life = 120ms)
-      const a = alpha(Math.min(dt, 0.05))
-      camCur.lerp(camTgt, a)
-      lookCur.lerp(lookTgt, a)
+      camCur.lerp(camTgt, LERP)
+      lookCur.lerp(lookTgt, LERP)
       camera.position.copy(camCur)
       camera.lookAt(lookCur)
 
@@ -335,7 +331,7 @@ export default function OceanScene() {
       // ── Chromatic aberration: spike when crossing y=0 ────────────────────
       const crossedSurface = prevCamY >= 0 && camCur.y < 0
       if (crossedSurface) chromaDecay = 1.0
-      chromaDecay = Math.max(0, chromaDecay - dt * 1.2)
+      chromaDecay = Math.max(0, chromaDecay - 0.02)
       prevCamY    = camCur.y
       chromaPass.uniforms['amount'].value = chromaDecay * 0.012
 
@@ -411,7 +407,7 @@ export default function OceanScene() {
 
     return () => {
       window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll)
+      scrollEl.removeEventListener('scroll', onScroll)
       cancelAnimationFrame(animId)
       composer.dispose()
       envRT.dispose()
@@ -425,19 +421,36 @@ export default function OceanScene() {
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      {/* Fixed 3D canvas */}
+      {/* 3D canvas — behind everything, no pointer events */}
       <div
         ref={mountRef}
-        style={{ position: 'fixed', inset: 0, zIndex: 0 }}
+        style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}
       />
 
-      {/* Tall transparent spacer — 500 vh drives the full camera journey */}
-      <div style={{ height: '500vh', pointerEvents: 'none' }} />
+      {/*
+        Dedicated scroll container — sits above the canvas, owns the native scroll.
+        Transparent background so the 3D scene shows through.
+        The scrollbar appears on the right edge; styled below.
+      */}
+      <div
+        ref={scrollElRef}
+        className="ocean-scroll"
+        style={{
+          position: 'fixed', inset: 0,
+          zIndex: 5,
+          overflowY: 'scroll',
+          overflowX: 'hidden',
+          background: 'transparent',
+        }}
+      >
+        {/* 500 vh spacer — pointer-events none so clicks pass through to canvas */}
+        <div style={{ height: '500vh', width: '100%', pointerEvents: 'none' }} />
+      </div>
 
-      {/* Landing overlay */}
+      {/* Landing overlay — above scroll container */}
       {showLanding && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 10,
+          position: 'fixed', inset: 0, zIndex: 20,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
@@ -504,6 +517,28 @@ export default function OceanScene() {
         @keyframes bahaarFadeUp {
           from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Custom scrollbar for the ocean scroll container */
+        .ocean-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        .ocean-scroll::-webkit-scrollbar-track {
+          background: rgba(0, 10, 30, 0.25);
+          border-radius: 3px;
+        }
+        .ocean-scroll::-webkit-scrollbar-thumb {
+          background: rgba(80, 170, 255, 0.55);
+          border-radius: 3px;
+          transition: background 0.2s;
+        }
+        .ocean-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(120, 200, 255, 0.85);
+        }
+        /* Firefox */
+        .ocean-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(80,170,255,0.55) rgba(0,10,30,0.25);
         }
       `}</style>
     </div>
