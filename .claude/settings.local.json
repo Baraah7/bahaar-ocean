@@ -6,7 +6,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(curl -s \"https://raw.githubusercontent.com/mrdoob/three.js/master/examples/webgl_shaders_ocean.html\")",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\Code\\\\bahaar-ocean\" -Force)",
-      "Bash(Select-Object Mode, Name)"
+      "Bash(Select-Object Mode, Name)",
+      "Bash(npm run *)"
     ]
   }
 }

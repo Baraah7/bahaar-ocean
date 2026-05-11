@@ -15,9 +15,9 @@ const WATER  = { distortionScale: 3.7, size: 0.4 }
 const BLOOM  = { strength: 0.1, radius: 0, threshold: 0 }
 const CLOUDS = { coverage: 0.41, density: 0.52, elevation: 0.72 }
 
-const CAM_START  = new THREE.Vector3(60, 30, 100)
+const CAM_START  = new THREE.Vector3(10, 18, 55)
 const CAM_END    = new THREE.Vector3(0, -290, 20)
-const LOOK_START = new THREE.Vector3(0, 10, 0)
+const LOOK_START = new THREE.Vector3(48, 8, 0)
 const LOOK_END   = new THREE.Vector3(0, -305, 0)
 
 // ── Cloud shader ───────────────────────────────────────────────────────────────
@@ -106,6 +106,8 @@ export default function OceanScene() {
     renderer.toneMapping    = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = SKY.exposure
     container.appendChild(renderer.domElement)
+    // Canvas must not capture pointer events — scroll must reach the window
+    renderer.domElement.style.pointerEvents = 'none'
 
     // ── Scene & Camera ─────────────────────────────────────────────────────────
     const scene  = new THREE.Scene()
@@ -211,8 +213,8 @@ export default function OceanScene() {
 
     loader.load('/models/Sail Ship.glb', gltf => {
       ship = gltf.scene
-      ship.scale.set(5, 5, 5)
-      ship.position.set(60, 0, 0)
+      ship.scale.set(11, 11, 11)
+      ship.position.set(50, 0, 0)
       scene.add(ship)
     }, undefined, e => console.warn('Ship:', e))
 
@@ -422,7 +424,7 @@ export default function OceanScene() {
   }, [])
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div style={{ position: 'relative', width: '100%' }}>
       {/* Fixed 3D canvas */}
       <div
         ref={mountRef}
